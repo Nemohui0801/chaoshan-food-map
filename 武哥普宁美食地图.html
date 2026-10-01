@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>潮汕人本地美食地图</title>
+  <title>潮汕本地人美食地图</title>
   <style>
     :root {
       --ink: #242018;
@@ -34,9 +34,13 @@
     h1 { margin: 10px 0 12px; font-family: Georgia, "Songti SC", serif; font-size: clamp(36px, 6vw, 72px); line-height: 1; }
     .lead { max-width: 760px; margin: 0; color: var(--muted); font-size: 17px; line-height: 1.8; }
     .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 28px; }
-    .stat { padding: 18px; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); }
-    .stat strong { display: block; font: 700 30px/1 Georgia, serif; }
-    .stat span { display: block; margin-top: 7px; color: var(--muted); font-size: 13px; }
+    .filter-card { min-width: 0; padding: 18px; border: 1px solid var(--line); border-radius: 18px; color: var(--ink); background: var(--panel); box-shadow: var(--shadow); text-align: left; cursor: pointer; }
+    .filter-card strong { display: block; font: 700 24px/1.15 Georgia, "Songti SC", serif; }
+    .filter-card span, .filter-card select { display: block; margin-top: 8px; color: var(--muted); font-size: 13px; }
+    .filter-card.active { color: white; border-color: var(--ink); background: var(--ink); }
+    .filter-card.active span { color: rgba(255,255,255,.78); }
+    .region-filter-card { position: relative; cursor: default; }
+    .region-filter-card select { width: 100%; border: 0; padding: 0; background: transparent; outline: none; cursor: pointer; }
     .notice { margin: 0 0 18px; padding: 14px 16px; border-left: 4px solid var(--orange); background: #fff8e8; border-radius: 10px; color: #614a2d; line-height: 1.65; }
     .map-panel { overflow: hidden; border: 1px solid var(--line); border-radius: 24px; background: var(--panel); box-shadow: var(--shadow); }
     .panel-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-end; padding: 22px 24px 10px; }
@@ -56,8 +60,8 @@
     .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 28px 0 18px; }
     .search { flex: 1 1 260px; min-width: 0; border: 1px solid var(--line); border-radius: 999px; padding: 12px 16px; background: white; outline: none; }
     .search:focus { border-color: var(--red); box-shadow: 0 0 0 3px rgba(191,62,47,.10); }
-    .chip { border: 1px solid var(--line); border-radius: 999px; padding: 10px 14px; color: var(--muted); background: rgba(255,255,255,.6); cursor: pointer; }
-    .chip.active { color: white; border-color: var(--ink); background: var(--ink); }
+    .empty-state { margin: 0 0 24px; padding: 18px; border: 1px dashed var(--line); border-radius: 16px; color: var(--muted); text-align: center; background: rgba(255,255,255,.56); }
+    .empty-state[hidden] { display: none; }
     .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; padding-bottom: 60px; }
     .card { position: relative; display: flex; flex-direction: column; min-height: 270px; padding: 20px; border: 1px solid var(--line); border-radius: 20px; background: var(--panel); box-shadow: 0 8px 24px rgba(61, 44, 22, .08); scroll-margin-top: 18px; }
     .card.hidden { display: none; }
@@ -90,12 +94,12 @@
 <body>
   <header class="wrap">
     <div class="eyebrow">WECHAT LOCATION COLLECTION · 2026</div>
-    <h1>潮汕人本地美食地图</h1>
-    <div class="stats">
-      <div class="stat"><strong>10</strong><span>筛选后美食定位</span></div>
-      <div class="stat"><strong>4</strong><span>肠粉店</span></div>
-      <div class="stat"><strong>6</strong><span>粥粉面及其他小吃</span></div>
-      <div class="stat"><strong>普宁</strong><span>所有店铺所在区域</span></div>
+    <h1>潮汕本地人美食地图</h1>
+    <div class="stats" aria-label="美食筛选">
+      <button class="filter-card" type="button" data-category-filter="seafood" aria-pressed="false"><strong>海鲜</strong><span>点击筛选</span></button>
+      <button class="filter-card" type="button" data-category-filter="noodle" aria-pressed="false"><strong>粥粉面及小吃</strong><span>点击筛选</span></button>
+      <button class="filter-card" type="button" data-category-filter="meal" aria-pressed="false"><strong>饭汤与正餐</strong><span>点击筛选</span></button>
+      <label class="filter-card region-filter-card"><strong>区域</strong><select id="region-filter" aria-label="按区域筛选"><option value="all">全部区域</option><option value="普宁">普宁</option><option value="汕头市区">汕头市区</option><option value="澄海">澄海</option><option value="揭西">揭西</option><option value="惠来">惠来</option></select></label>
     </div>
   </header>
 
@@ -108,49 +112,112 @@
         <div class="sub">手机双指缩放 · 拖拽平移 · 点击编号查看店铺</div>
       </div>
       <div class="map-stage">
-        <div id="map" role="application" aria-label="揭阳城区与普宁10家美食店的高德街道地图"></div>
-        <div id="map-error" class="map-error" hidden>地图底图加载失败，请检查网络后重新打开。</div>
+        <div id="map" role="application" aria-label="揭阳城区、普宁及周边美食店的高德街道地图"></div>
+        <div id="map-error" class="map-error" hidden>高德地图加载失败，请通过已发布的在线链接打开。</div>
       </div>
       <div class="map-foot">
-        <div class="relation-summary"><strong>位置关系：</strong>普宁市隶属揭阳市；地图保留的 10 个定位全部在普宁。图中“揭阳城区”是东北方向的区域参照点，不是武哥推荐的店铺。</div>
+        <div class="relation-summary"><strong>位置关系：</strong>地图以普宁为主，并包含汕头（含澄海）、揭西、惠来等周边地点。图中“揭阳城区”是东北方向的区域参照点。</div>
         <span class="legend"><i class="dot" style="background:#344f67"></i>城市参照点</span>
-        <span class="legend"><i class="dot" style="background:var(--orange)"></i>肠粉</span>
+        <span class="legend"><i class="dot" style="background:#2e7d9b"></i>海鲜</span>
         <span class="legend"><i class="dot" style="background:var(--green)"></i>粥粉面及小吃</span>
+        <span class="legend"><i class="dot" style="background:#9b5c32"></i>饭汤与正餐</span>
       </div>
     </section>
 
     <div class="toolbar">
       <input id="search" class="search" type="search" placeholder="搜索店名或地址…" aria-label="搜索店名或地址">
-      <button class="chip active" data-filter="all">全部 10</button>
-      <button class="chip" data-filter="roll">肠粉 4</button>
-      <button class="chip" data-filter="noodle">粥粉面及小吃 6</button>
     </div>
+    <p id="empty-state" class="empty-state" hidden>当前筛选条件下没有匹配的店铺。</p>
     <section id="cards" class="cards" aria-label="美食定位列表"></section>
   </main>
 
   <footer class="wrap">
-    数据范围：2026-09-18 至 2026-10-01 18:25 的可读取会话，共 68 条消息。原会话中读取到 12 条定位，其中 2 条牛肉相关定位已按要求排除，地图展示 10 条。会话中另有 1 张图片无法由 TraceMemo 解密，6 条语音没有可读取的音频或转写字段，因此本地图不对其内容作推测。
+    数据来源：武哥与倪莫Nemo的可读取微信定位。明确涉及牛肉、重复或非餐饮的地点未导入。微信图片和语音未作为定位卡片导入，本地图不对其内容作推测。
   </footer>
 
   <script>
     const places = [
-      {id:1, name:"渔行肠粉", address:"广东省揭阳市普宁市流沙大道七天酒店对面绿源电动巷子直入", lat:23.296591, lng:116.179504, category:"roll", categoryName:"肠粉", color:"#d97925"},
-      {id:2, name:"广达白菜肠粉", address:"广东省揭阳市普宁市流沙镇广达路口双林电脑对面", lat:23.298956, lng:116.147430, category:"roll", categoryName:"肠粉", color:"#d97925"},
-      {id:3, name:"万胜围广达白菜肠粉", address:"广东省揭阳市普宁市流沙西街道南平里191幢东起第12间门市1-2层", lat:23.294479, lng:116.159622, category:"roll", categoryName:"肠粉", color:"#d97925"},
-      {id:4, name:"炎记肠粉(芳草园店)", address:"广东省揭阳市普宁市流沙南街道天天渔港对面农业银行后面", lat:23.289200, lng:116.175072, category:"roll", categoryName:"肠粉", color:"#d97925"},
+      {id:1, name:"渔行肠粉", address:"广东省揭阳市普宁市流沙大道七天酒店对面绿源电动巷子直入", lat:23.296591, lng:116.179504, category:"noodle", categoryName:"粥粉面及小吃", color:"#39745b"},
+      {id:2, name:"广达白菜肠粉", address:"广东省揭阳市普宁市流沙镇广达路口双林电脑对面", lat:23.298956, lng:116.147430, category:"noodle", categoryName:"粥粉面及小吃", color:"#39745b"},
+      {id:3, name:"万胜围广达白菜肠粉", address:"广东省揭阳市普宁市流沙西街道南平里191幢东起第12间门市1-2层", lat:23.294479, lng:116.159622, category:"noodle", categoryName:"粥粉面及小吃", color:"#39745b"},
+      {id:4, name:"炎记肠粉(芳草园店)", address:"广东省揭阳市普宁市流沙南街道天天渔港对面农业银行后面", lat:23.289200, lng:116.175072, category:"noodle", categoryName:"粥粉面及小吃", color:"#39745b"},
       {id:5, name:"良记传统蛋面(华桂苑店)", address:"广东省揭阳市普宁市体育西路明华园右侧", lat:23.299002, lng:116.155846, category:"noodle", categoryName:"粥粉面及小吃", color:"#39745b"},
       {id:6, name:"特色蔬菜面", address:"广东省揭阳市普宁市什石洋乡道与大南山路交叉口正北方向88米左右", lat:23.264051, lng:116.171654, category:"noodle", categoryName:"粥粉面及小吃", color:"#39745b"},
       {id:7, name:"巴毛粿汁", address:"广东省揭阳市普宁市流沙北街道赤华北路兰花新村49幢", lat:23.304052, lng:116.160286, category:"noodle", categoryName:"粥粉面及小吃", color:"#39745b"},
       {id:8, name:"蔡厨西社炒面", address:"广东省揭阳市普宁市流沙南街道环城南路军屯路段1即新东城斜对面", lat:23.287249, lng:116.191841, category:"noodle", categoryName:"粥粉面及小吃", color:"#39745b"},
       {id:9, name:"粿汁明", address:"广东省揭阳市普宁市洪阳镇中山路东村(近洪阳电影院)", lat:23.436886, lng:116.214203, category:"noodle", categoryName:"粥粉面及小吃", color:"#39745b"},
-      {id:10, name:"洪阳蚝烙(平湖寨内庄店)", address:"广东省揭阳市普宁市流沙北街道流沙平湖桥头", lat:23.294798, lng:116.168159, category:"noodle", categoryName:"粥粉面及小吃", color:"#39745b"}
+      {id:10, name:"洪阳蚝烙(平湖寨内庄店)", address:"广东省揭阳市普宁市流沙北街道流沙平湖桥头", lat:23.294798, lng:116.168159, category:"seafood", categoryName:"海鲜", color:"#2e7d9b"},
+      {id:11, name:"揭阳市 · 来就好猪脚饭(龙华里店)", address:"池尾街道龙华里47幢", lat:23.310160, lng:116.160538, category:"meal", categoryName:"饭汤与正餐", color:"#9b5c32"},
+      {id:12, name:"揭阳市 · 渡口·潮汕味", address:"普宁·光明1号(普宁广场东路北)", lat:23.311398, lng:116.162956, category:"meal", categoryName:"饭汤与正餐", color:"#9b5c32"},
+      {id:13, name:"揭阳市 · 知堵知砂锅粥", address:"长春路93号后面第二街", lat:23.301966, lng:116.145721, category:"noodle", categoryName:"粥粉面及小吃", color:"#39745b"},
+      {id:14, name:"揭阳市 · 深夜寸进莲藕汤", address:"龙华里七街1号", lat:23.311062, lng:116.159264, category:"meal", categoryName:"饭汤与正餐", color:"#9b5c32"},
+      {id:15, name:"揭阳市 · 大前门肠粉店", address:"华市村龙华里7街1号", lat:23.311056, lng:116.159348, category:"noodle", categoryName:"粥粉面及小吃", color:"#39745b"},
+      {id:16, name:"揭阳市 · 贵政山鸭肉粿", address:"池尾街道贵湖路潮汕职业技术学院东北", lat:23.291195, lng:116.144379, category:"noodle", categoryName:"粥粉面及小吃", color:"#39745b"},
+      {id:17, name:"揭阳市 · 隐山煮·米饭研究所(御景城店)", address:"流沙北街道翔栩·御景城2区大门隔壁", lat:23.311794, lng:116.164711, category:"meal", categoryName:"饭汤与正餐", color:"#9b5c32"},
+      {id:18, name:"惜亩蟹汤", address:"广东省揭阳市普宁市龙华里龙华街60栋", lat:23.310411, lng:116.158768, category:"seafood", categoryName:"海鲜", color:"#2e7d9b"},
+      {id:19, name:"暗喜老式炖汤", address:"广东省揭阳市普宁市池尾街道龙华里61幢", lat:23.310362, lng:116.159355, category:"meal", categoryName:"饭汤与正餐", color:"#9b5c32"},
+      {id:20, name:"揭阳市 · 外嫜爆汁炸鸡翅", address:"池尾街道龙华里47栋", lat:23.310156, lng:116.160629, category:"noodle", categoryName:"粥粉面及小吃", color:"#39745b"},
+      {id:21, name:"杨成记莲藕", address:"广东省揭阳市普宁市占陇镇324国道北杨继昌眼科医院旁", lat:23.286800, lng:116.258018, category:"meal", categoryName:"饭汤与正餐", color:"#9b5c32"},
+      {id:22, name:"阔仔鸡煲", address:"广东省揭阳市普宁市南华路与沙玉路交叉口正东方82米左右", lat:23.306532, lng:116.166344, category:"meal", categoryName:"饭汤与正餐", color:"#9b5c32"},
+      {id:23, name:"和顺饺面店(信合路店)", address:"广东省揭阳市普宁市流沙南街道芳草园18幢", lat:23.288986, lng:116.175583, category:"noodle", categoryName:"粥粉面及小吃", color:"#39745b"},
+      {id:24, name:"西社水饺", address:"广东省揭阳市普宁市占陇镇西社西南村", lat:23.279638, lng:116.214104, category:"noodle", categoryName:"粥粉面及小吃", color:"#39745b"},
+      {id:25, name:"老林炸鸟·烧烤·砂锅粥·各式小炒", address:"广东省揭阳市普宁市流沙南街道军屯村南环大道新东城酒店东侧第7间", lat:23.286730, lng:116.192604, category:"meal", categoryName:"饭汤与正餐", color:"#9b5c32"},
+      {id:26, name:"德元桥炸豆干", address:"广东省揭阳市普宁市洪阳镇鸣岗村永春寨德元桥片区4号", lat:23.420818, lng:116.205231, category:"noodle", categoryName:"粥粉面及小吃", color:"#39745b"},
+      {id:27, name:"龙苑鸡煲", address:"广东省揭阳市普宁市龙苑新村安全小区28栋首层东五间", lat:23.298471, lng:116.160301, category:"meal", categoryName:"饭汤与正餐", color:"#9b5c32"},
+      {id:28, name:"梅林菜粿(池尾店)", address:"广东省揭阳市普宁市邮电广场西侧民楼第一层", lat:23.299921, lng:116.141441, category:"noodle", categoryName:"粥粉面及小吃", color:"#39745b"},
+      {id:29, name:"原大桥头老龟盛苦瓜炒饭", address:"广东省揭阳市揭西县棉湖镇兴中社区兴中路顶段", lat:23.436823, lng:116.146393, category:"meal", categoryName:"饭汤与正餐", color:"#9b5c32"},
+      {id:30, name:"四德中美鹅肉饭店", address:"广东省揭阳市普宁市占陇镇四德路承志楼国学堂旁", lat:23.290293, lng:116.299713, category:"meal", categoryName:"饭汤与正餐", color:"#9b5c32"},
+      {id:31, name:"玉山餐厅记辉饭店停车场", address:"广东省揭阳市普宁市X107", lat:23.521421, lng:116.215004, category:"meal", categoryName:"饭汤与正餐", color:"#9b5c32"},
+      {id:32, name:"猪脚兴饭店", address:"广东省揭阳市惠来县隆江镇襟峰路46号", lat:22.982380, lng:116.180305, category:"meal", categoryName:"饭汤与正餐", color:"#9b5c32"},
+      {id:33, name:"乌弟石磨肠粉(流沙分店)", address:"广东省揭阳市普宁市流沙西街道赤华路东北幢向北东起第3-4间1层", lat:23.294601, lng:116.160439, category:"noodle", categoryName:"粥粉面及小吃", color:"#39745b"},
+      {id:34, name:"阿彬蚝烙", address:"广东省揭阳市普宁市洪阳镇沿河西路百里桥向南114米", lat:23.435198, lng:116.217529, category:"seafood", categoryName:"海鲜", color:"#2e7d9b"},
+      {id:35, name:"老财炒饭(熟地蟹冬瓜蟹)", address:"广东省揭阳市普宁市南商场二街培英幼儿园(332乡道店)南侧约220米", lat:23.429836, lng:116.216331, category:"seafood", categoryName:"海鲜", color:"#2e7d9b"},
+      {id:36, name:"广兴夜茶", address:"广东省揭阳市普宁市占梨村梨园路安泰楼南侧第一幢", lat:23.289742, lng:116.263458, category:"meal", categoryName:"饭汤与正餐", color:"#9b5c32"},
+      {id:37, name:"潮普春满园老字号(平湖店)", address:"广东省揭阳市普宁市玉华路中段哈哈酒吧往大南山方向200米处", lat:23.291180, lng:116.163086, category:"meal", categoryName:"饭汤与正餐", color:"#9b5c32"},
+      {id:38, name:"曲毛正宗澄海鹅肉饭(兰花店)", address:"广东省揭阳市普宁市池尾街道体育路兰花苑88栋", lat:23.303259, lng:116.156425, category:"meal", categoryName:"饭汤与正餐", color:"#9b5c32"},
+      {id:39, name:"联发早茶", address:"广东省揭阳市普宁市下架山镇华下路下架山中学北侧约240米", lat:23.250029, lng:116.242233, category:"meal", categoryName:"饭汤与正餐", color:"#9b5c32"},
+      {id:40, name:"赤水珍珠鸡火锅", address:"广东省揭阳市普宁市流沙西街道馋嘴鱼味坊", lat:23.289192, lng:116.155205, category:"meal", categoryName:"饭汤与正餐", color:"#9b5c32"},
+      {id:41, name:"百明甜汤凉茶(平湖老店)", address:"广东省揭阳市普宁市流沙西街道平湖村河滨南路87-88号", lat:23.294613, lng:116.167465, category:"noodle", categoryName:"粥粉面及小吃", color:"#39745b"},
+      {id:42, name:"新疆哈山羊火锅烧烤羊串羊排全羊", address:"广东省揭阳市普宁市大南山街道大南山康美物流港后面乌头坎", lat:23.255112, lng:116.187904, category:"meal", categoryName:"饭汤与正餐", color:"#9b5c32"},
+      {id:43, name:"伟记捞饺(占陇大道店)", address:"广东省揭阳市普宁市占陇镇交丙坛广北一区6幢007号", lat:23.286100, lng:116.237679, category:"noodle", categoryName:"粥粉面及小吃", color:"#39745b"},
+      {id:44, name:"鼠记老店肉丸粘米圆", address:"广东省揭阳市普宁市洪阳镇洪阳商贸城二路一号", lat:23.434225, lng:116.220940, category:"noodle", categoryName:"粥粉面及小吃", color:"#39745b"},
+      {id:45, name:"老爷宫番薯粥", address:"广东省揭阳市普宁市洪阳镇华泰豪庭安吉尔净水器对面", lat:23.430740, lng:116.225861, category:"noodle", categoryName:"粥粉面及小吃", color:"#39745b"},
+      {id:46, name:"老二西胪莲藕汤", address:"广东省揭阳市普宁市流沙南街道环城南路天天渔港对面新光路农业银行旁", lat:23.289072, lng:116.174973, category:"meal", categoryName:"饭汤与正餐", color:"#9b5c32"},
+      {id:47, name:"吉祥餐厅(金鲤路店)", address:"广东省揭阳市普宁市里湖镇金里桥头金河路196号", lat:23.365103, lng:116.044357, category:"meal", categoryName:"饭汤与正餐", color:"#9b5c32"},
+      {id:48, name:"匠本米所·炸酱米线·潮汕小食(万泰汇店)", address:"广东省揭阳市普宁市御景城一期90号商铺", lat:23.312508, lng:116.160324, category:"noodle", categoryName:"粥粉面及小吃", color:"#39745b"},
+      {id:49, name:"南兴食城", address:"广东省揭阳市普宁市环城南路1号", lat:23.288252, lng:116.173897, category:"meal", categoryName:"饭汤与正餐", color:"#9b5c32"},
+      {id:50, name:"斗文饭店", address:"广东省揭阳市普宁市新光北路91号", lat:23.305838, lng:116.178169, category:"meal", categoryName:"饭汤与正餐", color:"#9b5c32"},
+      {id:51, name:"肥弟梅汁粿汤", address:"广东省揭阳市普宁市流沙北街道西市市场南一幢首层东起第一间", lat:23.300200, lng:116.168594, category:"noodle", categoryName:"粥粉面及小吃", color:"#39745b"},
+      {id:52, name:"周宝饭店", address:"广东省揭阳市普宁市流沙北街道南园村汇食街", lat:23.303711, lng:116.171593, category:"meal", categoryName:"饭汤与正餐", color:"#9b5c32"},
+      {id:53, name:"海乾粿汁(总店24小时营业)", address:"广东省汕头市金平区金东街道石榴园45栋113室", lat:23.377424, lng:116.705727, category:"noodle", categoryName:"粥粉面及小吃", color:"#39745b"},
+      {id:54, name:"围炉夜话·潮汕卤水火锅(榕江店)", address:"广东省汕头市龙湖区金霞街道榕江路6号金冠商业中心D栋102号店面", lat:23.368393, lng:116.718918, category:"meal", categoryName:"饭汤与正餐", color:"#9b5c32"},
+      {id:55, name:"渔家乐蒸汽海鲜火锅", address:"广东省汕头市龙湖区东厦北路158号宏泰阳茶贸城一楼(帝悦会馆隔壁)", lat:23.401958, lng:116.723366, category:"seafood", categoryName:"海鲜", color:"#2e7d9b"},
+      {id:56, name:"伟雄澄海老式粿条", address:"广东省汕头市澄海区凤翔街道凤新二路6号", lat:23.458218, lng:116.795181, category:"noodle", categoryName:"粥粉面及小吃", color:"#39745b"},
+      {id:57, name:"好食客鸡炉(莱美路店)", address:"广东省汕头市澄海区凤翔街道莱美路澄海水产批发市场向东北196米", lat:23.451843, lng:116.770065, category:"meal", categoryName:"饭汤与正餐", color:"#9b5c32"},
+      {id:58, name:"老巷口美食", address:"广东省汕头市澄海区玉潭路与通裕路交叉口正西方158米左右", lat:23.464190, lng:116.744583, category:"meal", categoryName:"饭汤与正餐", color:"#9b5c32"},
+      {id:59, name:"肥弟特色田螺鸡小炒", address:"广东省汕头市澄海区凤翔街道侨兴路西8号", lat:23.461281, lng:116.783752, category:"seafood", categoryName:"海鲜", color:"#2e7d9b"},
+      {id:60, name:"好粥(公安宿舍店)", address:"广东省汕头市澄海区澄华街道玉潭路北国饭店斜对面公安宿舍12号", lat:23.470551, lng:116.749535, category:"noodle", categoryName:"粥粉面及小吃", color:"#39745b"},
+      {id:61, name:"珍珠米砂锅粥·无米粥火锅·海鲜小炒", address:"广东省汕头市澄海区凤翔街道南门北旱工业区二巷20号之3铺面", lat:23.452139, lng:116.769363, category:"seafood", categoryName:"海鲜", color:"#2e7d9b"},
+      {id:62, name:"阿豪食店", address:"广东省汕头市澄海区广益街道龙田龙峰路西七横巷2号", lat:23.484163, lng:116.752731, category:"meal", categoryName:"饭汤与正餐", color:"#9b5c32"},
+      {id:63, name:"谢记阿喜鹅肠火锅(澄海店)", address:"广东省汕头市澄海区澄华路顺信物流楼下一号铺", lat:23.459152, lng:116.752708, category:"meal", categoryName:"饭汤与正餐", color:"#9b5c32"},
+      {id:64, name:"杯莫停中式小酒馆", address:"广东省汕头市澄海区龙中外15号横", lat:23.476419, lng:116.746132, category:"meal", categoryName:"饭汤与正餐", color:"#9b5c32"},
+      {id:65, name:"花园蚝烙", address:"广东省汕头市澄海区澄华街道丹虹园综合市场1栋8号门", lat:23.467115, lng:116.758423, category:"seafood", categoryName:"海鲜", color:"#2e7d9b"}
     ];
+
+    const regionFor = place => {
+      if (place.address.includes('澄海区')) return '澄海';
+      if (place.address.includes('汕头市金平区') || place.address.includes('汕头市龙湖区')) return '汕头市区';
+      if (place.address.includes('揭西县')) return '揭西';
+      if (place.address.includes('惠来县')) return '惠来';
+      return '普宁';
+    };
+    places.forEach(place => { place.region = regionFor(place); });
 
     const esc = s => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     const amapUrl = p => `https://uri.amap.com/marker?position=${p.lng},${p.lat}&name=${encodeURIComponent(p.name)}&src=wechat_food_map&coordinate=gaode&callnative=0`;
     const cards = document.getElementById('cards');
     cards.innerHTML = places.map(p => `
-      <article class="card" id="place-${p.id}" data-category="${p.category}" data-search="${esc((p.name + ' ' + p.address).toLowerCase())}">
+      <article class="card" id="place-${p.id}" data-category="${p.category}" data-region="${p.region}" data-search="${esc((p.name + ' ' + p.address).toLowerCase())}">
         <span class="number">${String(p.id).padStart(2,'0')}</span>
         <span class="tag" style="background:${p.color}">${p.categoryName}</span>
         <h3>${esc(p.name)}</h3>
@@ -171,22 +238,28 @@
     let streetMap = null;
 
     function initStreetMap() {
+      const mapError = document.getElementById('map-error');
       if (!window.AMap) {
-        document.getElementById('map-error').hidden = false;
+        mapError.hidden = false;
         return;
       }
 
-      streetMap = new AMap.Map('map', {
-        viewMode: '2D',
-        zoom: 10,
-        center: [116.25, 23.40],
-        resizeEnable: true,
-        dragEnable: true,
-        zoomEnable: true,
-        doubleClickZoom: true,
-        touchZoom: true,
-        features: ['bg', 'road', 'building', 'point']
-      });
+      try {
+        streetMap = new AMap.Map('map', {
+          viewMode: '2D',
+          zoom: 10,
+          center: [116.25, 23.40],
+          resizeEnable: true,
+          dragEnable: true,
+          zoomEnable: true,
+          doubleClickZoom: true,
+          touchZoom: true,
+          features: ['bg', 'road', 'building', 'point']
+        });
+      } catch (error) {
+        mapError.hidden = false;
+        return;
+      }
 
       places.forEach(place => {
         const pin = document.createElement('button');
@@ -229,6 +302,7 @@
       streetMap.setFitView(allOverlays, false, [70, 70, 70, 70], 11);
       streetMap.addControl(new AMap.ToolBar({position:{top:'16px', right:'16px'}}));
       streetMap.addControl(new AMap.Scale());
+      streetMap.on('complete', () => { mapError.hidden = true; });
     }
 
     initStreetMap();
@@ -417,24 +491,46 @@
     });
     }
 
-    let activeFilter = 'all';
+    let activeCategory = 'all';
     const search = document.getElementById('search');
+    const regionFilter = document.getElementById('region-filter');
+    const emptyState = document.getElementById('empty-state');
     function applyFilters() {
       const q = search.value.trim().toLowerCase();
+      const activeRegion = regionFilter.value;
+      let visibleCount = 0;
       document.querySelectorAll('.card').forEach(card => {
-        const visible = (activeFilter === 'all' || card.dataset.category === activeFilter) && card.dataset.search.includes(q);
+        const visible = (activeCategory === 'all' || card.dataset.category === activeCategory) &&
+          (activeRegion === 'all' || card.dataset.region === activeRegion) &&
+          card.dataset.search.includes(q);
         card.classList.toggle('hidden', !visible);
+        if (visible) visibleCount += 1;
       });
+      const visibleMarkers = [];
       markerEntries.forEach(({place, marker}) => {
-        const visible = (activeFilter === 'all' || place.category === activeFilter) && (place.name + ' ' + place.address).toLowerCase().includes(q);
-        if (visible) marker.show(); else marker.hide();
+        const visible = (activeCategory === 'all' || place.category === activeCategory) &&
+          (activeRegion === 'all' || place.region === activeRegion) &&
+          (place.name + ' ' + place.address).toLowerCase().includes(q);
+        if (visible) {
+          marker.show();
+          visibleMarkers.push(marker);
+        } else {
+          marker.hide();
+        }
       });
+      emptyState.hidden = visibleCount > 0;
+      if (streetMap && visibleMarkers.length) streetMap.setFitView(visibleMarkers, false, [70, 70, 70, 70], 15);
     }
     search.addEventListener('input', applyFilters);
-    document.querySelectorAll('.chip').forEach(chip => chip.addEventListener('click', () => {
-      document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-      chip.classList.add('active');
-      activeFilter = chip.dataset.filter;
+    regionFilter.addEventListener('change', applyFilters);
+    document.querySelectorAll('[data-category-filter]').forEach(button => button.addEventListener('click', () => {
+      const nextCategory = button.dataset.categoryFilter;
+      activeCategory = activeCategory === nextCategory ? 'all' : nextCategory;
+      document.querySelectorAll('[data-category-filter]').forEach(item => {
+        const isActive = item.dataset.categoryFilter === activeCategory;
+        item.classList.toggle('active', isActive);
+        item.setAttribute('aria-pressed', String(isActive));
+      });
       applyFilters();
     }));
     document.querySelectorAll('[data-copy]').forEach(btn => btn.addEventListener('click', async () => {
